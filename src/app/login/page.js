@@ -16,12 +16,14 @@ export default function Login() {
     const username = formData.get('username');
     const password = formData.get('password');
 
+    const drive = localStorage.getItem('selectedDrive');
+
     fetch('http://localhost:5000/api/login', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ username, password, drive }),
     })
     .then(response => {
       if (!response.ok) {
@@ -30,6 +32,8 @@ export default function Login() {
       return response.json();
     })
     .then(data => {
+      localStorage.setItem('username', username);
+      localStorage.setItem('password', password);
       window.location.href = '/filebrowser';
     })
     .catch(error => {

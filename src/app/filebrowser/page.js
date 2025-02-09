@@ -13,12 +13,9 @@ export default function FileBrowser() {
     // Fetch files from API
     const fetchFiles = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/files', {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
+        const drive = localStorage.getItem('selectedDrive');
+        const username = localStorage.getItem('username');
+        const response = await fetch(`http://localhost:5000/api/files?drive=${drive}&username=${username}`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -34,11 +31,16 @@ export default function FileBrowser() {
 
   const handleUpload = () => {
     const input = document.createElement('input');
+    const drive = localStorage.getItem('selectedDrive');
+    const username = localStorage.getItem('username');
+
     input.type = 'file';
     input.onchange = async (e) => {
       const file = e.target.files[0];
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('drive', drive);
+      formData.append('username', username);
 
       try {
         const response = await fetch('http://localhost:5000/api/upload', {
@@ -60,8 +62,11 @@ export default function FileBrowser() {
       return;
     }
 
+    const drive = localStorage.getItem('selectedDrive');
+    const username = localStorage.getItem('username');
+
     try {
-      const response = await fetch(`http://localhost:5000/api/download?filename=${selectedFile}`);
+      const response = await fetch(`http://localhost:5000/api/download?filename=${selectedFile}&drive=${drive}&username=${username}`);
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -91,6 +96,14 @@ export default function FileBrowser() {
     }
   };
 
+  const handleAccess = () => {
+    if (!selectedFile) {
+      alert('Please select a file to access');
+      return;
+    }
+    window.location.href = `/access?file=${selectedFile}`;
+  };
+
   const handleFileClick = (fileName) => {
     setSelectedFile(prev => prev === fileName ? null : fileName);
   };
@@ -115,6 +128,13 @@ export default function FileBrowser() {
             disabled={!selectedFile}
           >
             Delete
+          </button>
+          <button 
+            onClick={handleAccess} 
+            className={`${styles.controlButton} ${!selectedFile ? styles.disabled : ''}`}
+            disabled={!selectedFile}
+          >
+            Access
           </button>
         </div>
       </div>
