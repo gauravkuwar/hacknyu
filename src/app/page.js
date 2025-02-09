@@ -6,6 +6,8 @@ export default function Home() {
   const [drives, setDrives] = useState([]);
 
   useEffect(() => {
+    localStorage.clear();
+    
     // Fetch drives from API on component mount
     const fetchDrives = async () => {
       try {

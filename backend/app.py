@@ -5,6 +5,10 @@ import os
 app = Flask(__name__)
 CORS(app)
 
+# unique identifier for drives that use this app
+# stored in the drive_uid file
+drive_uid = "ccf629d7-c79b-4bf8-8a45-68c904ab3a82"
+
 @app.route('/')
 def health_check():
     return 'OK', 200
@@ -46,12 +50,30 @@ def get_files():
 
 @app.route('/api/drives', methods=['GET', 'POST'])
 def drives():
+    compatible_drives = []
+
     if request.method == 'GET':
-        drives = ["C:", "D:", "E:"]
-        return jsonify({"drives": drives}), 200
+        path_to_drives = "/Volumes/"
+        drives = os.listdir(path_to_drives)
+        for drive in drives:
+            if drive == "Macintosh HD":
+                continue
+            
+            files = os.listdir(f"{path_to_drives}/{drive}")
+            if "drive_uid" in files:
+                with open(f"{path_to_drives}/{drive}/drive_uid", "r") as f:
+                    cur_drive_uid = f.read()
+                    if cur_drive_uid == drive_uid:
+                        compatible_drives.append(drive)
+
+        return jsonify({"drives": compatible_drives}), 200
     elif request.method == 'POST':
-        drive = request.json.get('drive')
-        drives.append(drive)
+        path_to_drive = request.json.get('drive')
+        if path_to_drive == "/Volumes/Macintosh HD":
+            return jsonify({"message": "Invalid drive"}), 400
+        
+        with open(os.path.join(path_to_drive, "drive_uid"), "w") as f:
+            f.write(drive_uid)
         return jsonify({"message": "Drive added successfully"}), 200
 
 if __name__ == '__main__':
