@@ -1,109 +1,104 @@
 "use client";
 import styles from "./page.module.css";
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 
-export default function Login() {
-  if (!localStorage.getItem('selectedDrive')) {
-    window.location.href = '/';
-    return null;
-  }
-
-  const [files, setFiles] = React.useState([]);
-  const [selectedFile, setSelectedFile] = React.useState(null);
-  const [directoryStack, setDirectoryStack] = React.useState(['/']);
-
-  const getCurrentDirectory = () => directoryStack[directoryStack.length - 1];
+export default function FileBrowser() {
+  const [files, setFiles] = useState([]);
+  const [selectedFile, setSelectedFile] = useState(null);
 
   useEffect(() => {
-    // Simulate fetching files based on current directory
-    const currentDir = getCurrentDirectory();
-    if (currentDir === '/') {
-      setFiles([
-        { name: "Documents/", type: "directory" },
-        { name: "Pictures/", type: "directory" },
-        { name: "test.txt", type: "file" },
-      ]);
-    } else if (currentDir === "Documents/") {
-      setFiles([
-        { name: "Work/", type: "directory" },
-        { name: "Personal/", type: "directory" },
-        { name: "notes.txt", type: "file" },
-      ]);
-    } else if (currentDir === "Pictures/") {
-      setFiles([
-        { name: "Vacation/", type: "directory" },
-        { name: "Family/", type: "directory" },
-        { name: "landscape.jpg", type: "file" },
-      ]);
-    } else {
-      // Handle deeper directories
-      setFiles([
-        { name: "file1.txt", type: "file" },
-        { name: "file2.txt", type: "file" },
-      ]);
-    }
-  }, [directoryStack]);
+    // Check localStorage only after component mounts (client-side)
+    typeof window !== 'undefined' && !window.localStorage.getItem('selectedDrive') && (window.location.href = '/');
+
+    // Fetch files from API
+    const fetchFiles = async () => {
+      try {
+        const response = await fetch('http://localhost:5000/api/files', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        setFiles(data.files);
+      } catch (error) {
+        console.error('Error fetching files:', error);
+      }
+    };
+
+    fetchFiles();
+  }, []);
 
   const handleUpload = () => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.onchange = (e) => {
+    input.onchange = async (e) => {
       const file = e.target.files[0];
-      setFiles(prev => [...prev, { name: file.name, type: 'file' }]);
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const response = await fetch('http://localhost:5000/api/upload', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await response.json();
+        setFiles(prev => [...prev, file.name]);
+      } catch (error) {
+        console.error('Error uploading file:', error);
+      }
     };
     input.click();
   };
 
-  const handleDownload = () => {
-    if (selectedFile) {
-      alert(`Downloading ${selectedFile.name}`);
-    } else {
+  const handleDownload = async () => {
+    if (!selectedFile) {
       alert('Please select a file to download');
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:5000/api/download?filename=${selectedFile}`);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = selectedFile;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading file:', error);
     }
   };
 
-  const handleDelete = () => {
-    if (selectedFile) {
-      setFiles(prev => prev.filter(file => file.name !== selectedFile.name));
-      setSelectedFile(null);
-    } else {
+  const handleDelete = async () => {
+    if (!selectedFile) {
       alert('Please select a file to delete');
+      return;
+    }
+
+    try {
+      await fetch(`http://localhost:5000/api/delete?filename=${selectedFile}`, {
+        method: 'DELETE'
+      });
+      setFiles(prev => prev.filter(file => file !== selectedFile));
+      setSelectedFile(null);
+    } catch (error) {
+      console.error('Error deleting file:', error);
     }
   };
 
-  const handleFileClick = (file) => {
-    if (file.type === 'directory') {
-      setDirectoryStack(prev => [...prev, file.name]);
-    } else {
-      if (selectedFile?.name === file.name) {
-        setSelectedFile(null);
-      } else {
-        setSelectedFile(file);
-      }
-    }
-  };
-
-  const handleBack = () => {
-    if (directoryStack.length > 1) {
-      setDirectoryStack(prev => prev.slice(0, -1));
-    }
-  };
-
-  const getFullPath = () => {
-    return directoryStack.join('');
+  const handleFileClick = (fileName) => {
+    setSelectedFile(prev => prev === fileName ? null : fileName);
   };
 
   return (
     <>
       <div className={styles.controls}>
-        <div style={{ marginRight: 'auto' }}>
-          {directoryStack.length > 1 && (
-            <button onClick={handleBack} className={styles.controlButton}>
-              Back
-            </button>
-          )}
-        </div>
-        <div style={{ display: 'flex', gap: '16px' }}>
+        <div style={{ display: 'flex', gap: '16px', marginLeft: 'auto' }}>
           <button onClick={handleUpload} className={styles.controlButton}>
             Upload
           </button>
@@ -126,18 +121,16 @@ export default function Login() {
       <div className={styles.main}>
         <div className={styles.fileList}>
           <div className={styles.directoryHeader}>
-            {getFullPath()}
+            /
           </div>
-          {files.map((file, index) => (
+          {files.map((fileName, index) => (
             <div
               key={index}
               className={`${styles.fileItem} 
-                ${selectedFile?.name === file.name ? styles.selected : ''}
-                ${file.type === 'directory' ? styles.directoryItem : ''}`}
-              onClick={() => handleFileClick(file)}
+                ${selectedFile === fileName ? styles.selected : ''}`}
+              onClick={() => handleFileClick(fileName)}
             >
-              {file.name}
-              {file.type === 'directory'}
+              {fileName}
             </div>
           ))}
         </div>

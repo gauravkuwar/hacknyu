@@ -1,11 +1,14 @@
 "use client";
+import React, { useEffect } from 'react';
 import styles from "./page.module.css";
 
 export default function Login() {
-  if (!localStorage.getItem('selectedDrive')) {
-    window.location.href = '/';
-    return null;
-  }
+  useEffect(() => {
+    // Check localStorage only after component mounts (client-side)
+    if (typeof window !== 'undefined' && !window.localStorage.getItem('selectedDrive')) {
+      window.location.href = '/';
+    }
+  }, []);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -13,7 +16,28 @@ export default function Login() {
     const username = formData.get('username');
     const password = formData.get('password');
 
-    window.location.href = '/filebrowser';
+    fetch('http://localhost:5000/api/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ username, password }),
+    })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Login failed');
+      }
+      return response.json();
+    })
+    .then(data => {
+      window.location.href = '/filebrowser';
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      alert('Login failed. Please check your credentials.');
+      return;
+    });
+
   };
   
   return (
