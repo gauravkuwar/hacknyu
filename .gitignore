@@ -45,3 +45,7 @@ backend/app.pyc
 backend/__pycache__
 backend/env
 backend/tmp/*
+
+# jupyter
+.ipynb_checkpoints
+*.ipynb
