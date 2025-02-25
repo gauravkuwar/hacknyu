@@ -50,3 +50,6 @@ backend/tmp/*
 # jupyter
 .ipynb_checkpoints
 *.ipynb
+
+# report
+report/
